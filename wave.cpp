@@ -6,6 +6,8 @@
 
 #include "helpers.h"
 #include <iomanip>
+#include <fstream>
+#include <math.h>
 
 using namespace std;
 
@@ -124,7 +126,7 @@ Wave::Wave( const char * const buffer, const size_t & buffer_size ) {
         // cerr <<  "0x" << std::hex << (offset + (i*2)) << '\n';
         ChannelData[ i % NumChannels ]
             .push_back (
-                endian_swap<uint16_t>( buffer + offset + (i*2) )
+                endian_swap<int16_t>( buffer + offset + (i*2) )
             );
     }
 
@@ -158,5 +160,84 @@ void Wave::printData() {
                 << " ";
         }
         cout << endl;
+    }
+}
+
+
+void Wave::toFile( const string & filename ) {
+    ofstream ofs( filename, ios::binary | ios::out );
+
+    /* Main Chunk */
+    ofs << "RIFF";
+
+    /* Main Chunk Size */
+    uint32_t MainChunkSize = get_MainChunkSize();
+    ofs.write( (const char *)&MainChunkSize, sizeof(MainChunkSize) );
+
+    /* Assert Format */
+    ofs << "WAVE";
+
+    /* Assert Chunk 1 is "fmt " */
+    ofs << "fmt ";
+
+    /* Subchunk1Size */
+    uint32_t Subchunk1Size = 16;
+    ofs.write( (const char *)&Subchunk1Size, sizeof(Subchunk1Size) );
+
+    /* AudioFormat */
+    uint16_t AudioFormat = 1;
+    ofs.write( (const char *)&AudioFormat, sizeof(AudioFormat) );
+    
+    /* NumChannels */
+    ofs.write( (const char *)&NumChannels, sizeof(NumChannels) );
+    
+    /* SampleRate */
+    ofs.write( (const char *)&SampleRate, sizeof(SampleRate) );
+    
+    /* ByteRate */
+    ofs.write( (const char *)&ByteRate, sizeof(ByteRate) );
+    
+    /* BlockAlign */
+    ofs.write( (const char *)&BlockAlign, sizeof(BlockAlign) );
+    
+    /* BitsPerSample */
+    ofs.write( (const char *)&BitsPerSample, sizeof(BitsPerSample) );
+    
+    /* Data SubChunk */
+    ofs << "data";
+
+    /* Data Size */
+    ofs.write( (const char *)&DataSize, sizeof(DataSize) );
+
+    /* ChannelData */
+    for ( size_t i = 0; i < DataSize * 8/BitsPerSample; i++ ) {
+        int16_t sample = ChannelData[ i % NumChannels ].at( i / NumChannels );
+        ofs.write( (const char *)&sample, sizeof(sample) );
+    }
+
+    ofs.close();
+}
+
+
+/* https://www.desmos.com/calculator/nswz1vq9qh */
+void Wave::smooth( unsigned char damp ) {
+
+    const double a = 255.2;
+    double damp_c = a * ( 1 - pow(
+        ( a - 255 )/a ,
+        (double) damp/255 )
+    );
+
+    for ( uint16_t channel = 0; channel < NumChannels; channel++ ) {
+        for ( uint32_t i = 1; i < ChannelData[channel].size(); i++ ) {
+            // cerr << "Old: " << ChannelData[channel].at(i) << '\n';
+            ChannelData[channel].at(i) = (int64_t)
+                (( (255 - damp_c) * ChannelData[channel].at( i )
+                    + ( damp_c )  * ChannelData[channel].at(i-1)
+            ) / 255);
+            // cerr << "New: " << ChannelData[channel].at(i) << '\n';
+            // if ( i == 20 )
+            //     throw i;
+        }
     }
 }

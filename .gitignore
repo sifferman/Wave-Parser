@@ -1,0 +1,6 @@
+
+# .gitignore #
+
+# Output
+OUT/
+out.txt

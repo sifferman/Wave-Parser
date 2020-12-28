@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <stdint.h>
 #include <vector>
+#include <string>
 
 
 class Wave {
@@ -17,10 +18,13 @@ class Wave {
         Wave( const char * const buffer, const size_t & buffer_size );
         ~Wave();
 
+        void smooth( unsigned char );
+
         void printFmt();
         void printData();
+        void toFile( const std::string & filename );
     private:
-        typedef std::vector<uint16_t> data_vect;
+        typedef std::vector<int16_t> data_vect;
 
         class BadFormat             { };
 
@@ -37,6 +41,9 @@ class Wave {
         uint32_t    DataSize        ;
         data_vect * ChannelData     ;
 
+        uint32_t get_MainChunkSize() {
+            return 36 + DataSize;
+        }
 };
 
 #endif
