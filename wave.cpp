@@ -4,240 +4,246 @@
 
 #include "wave.h"
 
-#include "helpers.h"
 #include <iomanip>
 #include <fstream>
+#include <iostream>
 #include <math.h>
 
-using namespace std;
 
-Wave::Wave() {
-    NumChannels     = 0 ;
-    SampleRate      = 0 ;
-    ByteRate        = 0 ;
-    BlockAlign      = 0 ;
-    BitsPerSample   = 0 ;
-    DataSize        = 0 ;
-    ChannelData     = 0 ;
+/* Endian Conversion */
+
+#if defined _WIN32 || defined __CYGWIN__
+// https://docs.microsoft.com/en-us/windows/win32/api/winsock2/
+#include <winsock2.h>
+#else
+// https://pubs.opengroup.org/onlinepubs/7908799/xns/arpainet.h.html
+#include <arpa/inet.h>
+#endif
+// host to little endian
+#define __htole32(...) __builtin_bswap32(htonl(__VA_ARGS__))
+#define __htole16(...) __builtin_bswap16(htons(__VA_ARGS__))
+// little endian to host
+#define __letoh32(...) __builtin_bswap32(ntohl(__VA_ARGS__))
+#define __letoh16(...) __builtin_bswap16(ntohs(__VA_ARGS__))
+
+
+
+class BadLoadSize { };
+
+template <class T>
+void load( T & destination, const char * const buffer, size_t & offset ) {
+    size_t length = sizeof(destination);
+    memcpy( &destination, buffer + offset, length );
+    switch ( length ) {
+    case 1:
+        break;
+    case 2:
+        destination = __letoh16(destination);
+        break;
+    case 4:
+        destination = __letoh32(destination);
+        break;
+    default:
+        throw BadLoadSize();
+        break;
+    }
+    offset += length;
 }
 
-Wave::Wave( const char * const buffer, const size_t & buffer_size ) {
 
-    if ( buffer_size < 44 )
+
+Wave::Chunk::Chunk() : ChunkSize(0) {
+    memset( ChunkID, 0, 4 );
+}
+Wave::Chunk::Chunk( const char * buffer, const size_t & buffer_size = -1 ) {
+    if ( buffer_size < 8 )
         throw BadFormat();
 
-    size_t offset   = 0 ;
+    size_t offset = 0;
 
-    /* Main Chunk */
-    if (    buffer[offset]   != 'R' ||
-            buffer[offset+1] != 'I' ||
-            buffer[offset+2] != 'F' ||
-            buffer[offset+3] != 'F' ) {
+    memcpy( ChunkID, buffer + offset, 4 );
+    offset += 4;
+
+    load( ChunkSize, buffer, offset );
+    
+    print();
+}
+Wave::Chunk & Wave::Chunk::operator=( const Chunk & c ) {
+    ChunkSize = c.ChunkSize;
+    memcpy( ChunkID, c.ChunkID, 4 );
+    return *this;
+}
+void Wave::Chunk::print() const {
+    printf( "%c%c%c%c\n", ChunkID[0], ChunkID[1], ChunkID[2], ChunkID[3] );
+    printf( "%d\n", ChunkSize );
+}
+
+
+
+
+
+Wave::fmt_Chunk::fmt_Chunk() 
+: Chunk(),
+  AudioFormat(0),
+  NumChannels(0),
+  SampleRate(0),
+  ByteRate(0),
+  BlockAlign(0),
+  BitsPerSample(0)
+{}
+Wave::fmt_Chunk::fmt_Chunk( const char * buffer, const size_t & buffer_size ) 
+: Chunk( buffer, buffer_size ) {
+    if ( buffer_size < 16+8 || ChunkSize != 16 )
         throw BadFormat();
-    }
-    offset += 4;
+
+    size_t offset = 8;
 
 
-    /* Main Chunk Size */
-    uint32_t MainChunkSize;
-    MainChunkSize = endian_swap<uint32_t>( buffer + offset );
-    if ( MainChunkSize + 8 > buffer_size )
-        throw BadFormat();
-    offset += 4;
-
-    /* Assert Format */
-    if (    buffer[offset]   != 'W' ||
-            buffer[offset+1] != 'A' ||
-            buffer[offset+2] != 'V' ||
-            buffer[offset+3] != 'E' ) {
-        throw BadFormat();
-    }
-    offset += 4;
-
-    /* Assert Chunk 1 is "fmt " */
-    if (    buffer[offset]   != 'f' ||
-            buffer[offset+1] != 'm' ||
-            buffer[offset+2] != 't' ||
-            buffer[offset+3] != ' ' ) {
-        throw BadFormat();
-    }
-    offset += 4;
-
-    /* Subchunk1Size */
-    uint32_t Subchunk1Size;
-    Subchunk1Size = endian_swap<uint32_t>( buffer + offset );
-    if ( Subchunk1Size != 16 )
-        throw CannotHandleNonPCM();
-    offset += 4;
-
-
-    /* AudioFormat */
-    uint16_t AudioFormat;
-    AudioFormat  = endian_swap<uint16_t>( buffer + offset );
+    load( AudioFormat   , buffer, offset );
     if ( AudioFormat != 1 )
-        throw CannotHandleNonPCM();
-    offset += 2;
-
-    
-    /* NumChannels */
-    NumChannels = endian_swap<uint16_t>( buffer + offset );
-    if ( NumChannels == 0 )
-        throw NoChannels();
-    ChannelData = new data_vect[NumChannels];
-    offset += 2;
-
-    /* SampleRate */
-    SampleRate = endian_swap<uint32_t>( buffer + offset );
-    offset += 4;
-    
-    /* ByteRate */
-    ByteRate = endian_swap<uint32_t>( buffer + offset );
-    offset += 4;
-
-    /* BlockAlign */
-    BlockAlign = endian_swap<uint16_t>( buffer + offset );
-    offset += 2;
-
-    /* BitsPerSample */
-    BitsPerSample = endian_swap<uint16_t>( buffer + offset );
-    if ( BitsPerSample != 16 )
-        throw CannotHandleNon16Bit();
-    offset += 2;
-
-    /* Find Data SubChunk */
-    while ( buffer[offset]   != 'd' ||
-            buffer[offset+1] != 'a' ||
-            buffer[offset+2] != 't' ||
-            buffer[offset+3] != 'a' ) {
-        offset++;
-        if ( offset > MainChunkSize + 8 )
-            throw BadFormat();
-    }
-    offset += 4;
-
-    /* Data Size */
-    DataSize = endian_swap<uint32_t>( buffer + offset );
-    offset += 4;
-    if ( DataSize > MainChunkSize + 8 - offset )
         throw BadFormat();
 
-    /* ChannelData */
-    for ( size_t i = 0; i < DataSize * 8/BitsPerSample; i++ ) {
-        // cerr <<  "0x" << std::hex << (offset + (i*2)) << '\n';
-        ChannelData[ i % NumChannels ]
-            .push_back (
-                endian_swap<int16_t>( buffer + offset + (i*2) )
-            );
+    load( NumChannels   , buffer, offset );
+
+    load( SampleRate    , buffer, offset );
+
+    load( ByteRate      , buffer, offset );
+
+    load( BlockAlign    , buffer, offset );
+
+    load( BitsPerSample , buffer, offset );
+    if ( BitsPerSample & 0b111 || BitsPerSample > 32 )
+        throw BadFormat();
+}
+Wave::fmt_Chunk & Wave::fmt_Chunk::operator=( const fmt_Chunk & c ) {
+    (Chunk&)(*this) = c ;
+    AudioFormat = c.AudioFormat;
+    NumChannels = c.NumChannels;
+    SampleRate = c.SampleRate;
+    ByteRate = c.ByteRate;
+    BlockAlign = c.BlockAlign;
+    BitsPerSample = c.BitsPerSample;
+    return *this;
+}
+
+
+
+
+Wave::dataChunk::dataChunk()
+: Chunk(), data(0)
+{ }
+Wave::dataChunk::dataChunk( const char * buffer, const size_t & buffer_size )
+: Chunk( buffer, buffer_size ) {
+    data = new uint8_t[ ChunkSize ];
+    memcpy( data, buffer + 8, ChunkSize );
+}
+Wave::dataChunk::~dataChunk() {
+    if ( data )
+        delete [] data;
+    data = 0;
+}
+Wave::dataChunk & Wave::dataChunk::operator=( const dataChunk & c ) {
+    (Chunk&)(*this) = c ;
+    if ( data )
+        delete [] data;
+    data = new uint8_t[ ChunkSize ];
+    memcpy( data, c.data, c.ChunkSize );
+    return *this;
+}
+void Wave::dataChunk::print_data( size_t num ) const {
+    for ( uint8_t i = 0; i < num; i++ )
+        printf( "%#04x\n", data[i] );
+}
+
+
+
+
+constexpr const char Wave::MainChunk::WAVE_ChunkIDs[2][4];
+constexpr const char Wave::MainChunk::WAVE_Format[4];
+
+Wave::MainChunk::MainChunk() 
+: Chunk(), fmt__Chunk(), data_Chunk() {
+    memset( Format, 0, 4 );
+}
+Wave::MainChunk::MainChunk( const char * buffer, const size_t & buffer_size )
+: Chunk( buffer, buffer_size ) {
+    size_t offset = 8;
+
+    // Format
+    memcpy( Format, buffer + offset, 4 );
+    offset += 4;
+
+    // if the Format is Wave
+    if ( memcmp( Format, WAVE_Format, 4 ) == 0 ) {
+
+        // fmt chunk
+        fmt__Chunk = fmt_Chunk( buffer + offset, buffer_size - offset );
+        if ( memcmp( fmt__Chunk.ChunkID, WAVE_ChunkIDs[0], 4 ) != 0 ) throw BadFormat();
+        offset += fmt__Chunk.ChunkSize + 8;
+
+        // data chunk
+        data_Chunk = dataChunk( buffer + offset, buffer_size - offset );
+        if ( memcmp( data_Chunk.ChunkID, WAVE_ChunkIDs[1], 4 ) != 0 ) throw BadFormat();
+
+    }
+    else {
+        throw BadFormat();
     }
 
 }
-
-Wave::~Wave() {
-    if ( ChannelData )
-        delete [] ChannelData;
-    ChannelData = 0;
+Wave::MainChunk & Wave::MainChunk::operator=( const MainChunk & c ) {
+    memcpy( Format, c.Format, 4 );
+    fmt__Chunk = c.fmt__Chunk;
+    data_Chunk = c.data_Chunk;
+    return *this;
 }
 
 
 
 
+Wave::Wave( const std::string & filename ) {
 
-void Wave::printFmt() {
-    cout << "NumChannels  : " << NumChannels << endl;
-    cout << "SampleRate   : " << SampleRate << endl;
-    cout << "ByteRate     : " << ByteRate << endl;
-    cout << "BlockAlign   : " << BlockAlign << endl;
-    cout << "BitsPerSample: " << BitsPerSample << endl;
+    std::ifstream ifs( filename );
+
+    if ( !ifs )
+        throw CouldNotOpenFile();
+    
+    // get length of file:
+    ifs.seekg ( 0, ifs.end );
+    size_t buffer_size = ifs.tellg();
+    ifs.seekg ( 0, ifs.beg );
+
+    // load into buffer
+    char * buffer = new char[ buffer_size ];
+    ifs.read( buffer, buffer_size );
+    ifs.close();
+
+    file = MainChunk( buffer, buffer_size );
+
+    BytesPerSample = file.fmt__Chunk.BitsPerSample >> 3;
 }
 
-
-void Wave::printData() {
-    for ( uint32_t i = 0; i < ((DataSize/NumChannels) / (BitsPerSample/8)); i++ ) {
-        for ( uint16_t channel = 0; channel < NumChannels; channel++ ) {
-            cout
-                << setfill('0') << setw( BitsPerSample/4 ) << std::hex
-                << ChannelData[ channel ].at(i)
-                << " ";
-        }
-        cout << endl;
-    }
+void Wave::print() const {
+    file.print();
 }
 
+uint32_t Wave::getSample( size_t i, uint16_t channel ) const {
 
-void Wave::toFile( const string & filename ) {
-    ofstream ofs( filename, ios::binary | ios::out );
+    uint32_t out = 0;
+    size_t offset = (BytesPerSample * ( i*file.fmt__Chunk.NumChannels + channel));
 
-    /* Main Chunk */
-    ofs << "RIFF";
+    if ( channel >= file.fmt__Chunk.NumChannels || offset > file.data_Chunk.ChunkSize - BytesPerSample )
+        throw OutOfRange();
 
-    /* Main Chunk Size */
-    uint32_t MainChunkSize = get_MainChunkSize();
-    ofs.write( (const char *)&MainChunkSize, sizeof(MainChunkSize) );
-
-    /* Assert Format */
-    ofs << "WAVE";
-
-    /* Assert Chunk 1 is "fmt " */
-    ofs << "fmt ";
-
-    /* Subchunk1Size */
-    uint32_t Subchunk1Size = 16;
-    ofs.write( (const char *)&Subchunk1Size, sizeof(Subchunk1Size) );
-
-    /* AudioFormat */
-    uint16_t AudioFormat = 1;
-    ofs.write( (const char *)&AudioFormat, sizeof(AudioFormat) );
-    
-    /* NumChannels */
-    ofs.write( (const char *)&NumChannels, sizeof(NumChannels) );
-    
-    /* SampleRate */
-    ofs.write( (const char *)&SampleRate, sizeof(SampleRate) );
-    
-    /* ByteRate */
-    ofs.write( (const char *)&ByteRate, sizeof(ByteRate) );
-    
-    /* BlockAlign */
-    ofs.write( (const char *)&BlockAlign, sizeof(BlockAlign) );
-    
-    /* BitsPerSample */
-    ofs.write( (const char *)&BitsPerSample, sizeof(BitsPerSample) );
-    
-    /* Data SubChunk */
-    ofs << "data";
-
-    /* Data Size */
-    ofs.write( (const char *)&DataSize, sizeof(DataSize) );
-
-    /* ChannelData */
-    for ( size_t i = 0; i < DataSize * 8/BitsPerSample; i++ ) {
-        int16_t sample = ChannelData[ i % NumChannels ].at( i / NumChannels );
-        ofs.write( (const char *)&sample, sizeof(sample) );
-    }
-
-    ofs.close();
-}
-
-
-/* https://www.desmos.com/calculator/nswz1vq9qh */
-void Wave::smooth( unsigned char damp ) {
-
-    const double a = 255.2;
-    double damp_c = a * ( 1 - pow(
-        ( a - 255 )/a ,
-        (double) damp/255 )
+    memcpy(
+        &out,
+        file.data_Chunk.data + offset,
+        BytesPerSample
     );
 
-    for ( uint16_t channel = 0; channel < NumChannels; channel++ ) {
-        for ( uint32_t i = 1; i < ChannelData[channel].size(); i++ ) {
-            // cerr << "Old: " << ChannelData[channel].at(i) << '\n';
-            ChannelData[channel].at(i) = (int64_t)
-                (( (255 - damp_c) * ChannelData[channel].at( i )
-                    + ( damp_c )  * ChannelData[channel].at(i-1)
-            ) / 255);
-            // cerr << "New: " << ChannelData[channel].at(i) << '\n';
-            // if ( i == 20 )
-            //     throw i;
-        }
-    }
+    out = __letoh32(out);
+    
+    // printf( "%d,%d : %#010x\n", channel, i, out );
+
+    return out;
 }

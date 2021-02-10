@@ -3,47 +3,79 @@
 /* http://soundfile.sapp.org/doc/WaveFormat/ */
 
 
-#ifndef _WAVE_
-#define _WAVE_
+#ifndef _WAVE_H_
+#define _WAVE_H_
 
 #include <cstddef>
 #include <stdint.h>
-#include <vector>
+#include <cstring>
 #include <string>
+
 
 
 class Wave {
     public:
-        Wave();
-        Wave( const char * const buffer, const size_t & buffer_size );
-        ~Wave();
-
-        void smooth( unsigned char );
-
-        void printFmt();
-        void printData();
-        void toFile( const std::string & filename );
+        Wave( const std::string & filename );
+        void print() const;
+        uint32_t getSample( size_t i, uint16_t channel ) const;
+        
     private:
-        typedef std::vector<int16_t> data_vect;
+        class CouldNotOpenFile { };
+        class BadFormat { };
+        class OutOfRange { };
 
-        class BadFormat             { };
+        struct Chunk {
+            Chunk();
+            Chunk( const char * buffer, const size_t & buffer_size );
+            Chunk & operator=( const Chunk & c );
 
-        class NoChannels            { };
-        class CannotHandleNonPCM    { };
-        class CannotHandleNon16Bit  { };
+            void print() const;
 
-        uint16_t    NumChannels     ;
-        uint32_t    SampleRate      ;
-        uint32_t    ByteRate        ;
-        uint16_t    BlockAlign      ;
-        uint16_t    BitsPerSample   ; // must be 16 bit
+            char            ChunkID[4]  ;
+            uint32_t        ChunkSize   ;
+        };
 
-        uint32_t    DataSize        ;
-        data_vect * ChannelData     ;
+        struct fmt_Chunk : public Chunk {
+            fmt_Chunk();
+            fmt_Chunk( const char * buffer, const size_t & buffer_size );
+            fmt_Chunk & operator=( const fmt_Chunk & c );
 
-        uint32_t get_MainChunkSize() {
-            return 36 + DataSize;
-        }
+            uint16_t    AudioFormat     ;
+            uint16_t    NumChannels     ;
+            uint32_t    SampleRate      ;
+            uint32_t    ByteRate        ;
+            uint16_t    BlockAlign      ;
+            uint16_t    BitsPerSample   ;
+        };
+
+        struct dataChunk : public Chunk {
+            dataChunk();
+            dataChunk( const char * buffer, const size_t & buffer_size );
+            dataChunk & operator=( const dataChunk & c );
+            ~dataChunk();
+
+            void print_data( size_t num ) const;
+            
+            uint8_t         * data      ;
+        };
+
+        struct MainChunk : public Chunk {
+            static constexpr const char WAVE_ChunkIDs[2][4] = { {'f','m','t',' '}, {'d','a','t','a'} };
+            static constexpr const char WAVE_Format[4] = {'W','A','V','E'};
+            
+            MainChunk();
+            MainChunk( const char * buffer, const size_t & buffer_size );
+            MainChunk & operator=( const MainChunk & c );
+
+            char            Format[4]   ;
+            fmt_Chunk       fmt__Chunk  ;
+            dataChunk       data_Chunk  ;
+        };
+
+
+        MainChunk file;
+
+        uint8_t BytesPerSample;
 };
 
 #endif
