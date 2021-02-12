@@ -4,28 +4,11 @@
 
 #include "wave.h"
 
-#include <iomanip>
 #include <fstream>
-#include <iostream>
-#include <math.h>
 
 
 /* Endian Conversion */
-
-#if defined _WIN32 || defined __CYGWIN__
-// https://docs.microsoft.com/en-us/windows/win32/api/winsock2/
-#include <winsock2.h>
-#else
-// https://pubs.opengroup.org/onlinepubs/7908799/xns/arpainet.h.html
-#include <arpa/inet.h>
-#endif
-// host to little endian
-#define __htole32(...) __builtin_bswap32(htonl(__VA_ARGS__))
-#define __htole16(...) __builtin_bswap16(htons(__VA_ARGS__))
-// little endian to host
-#define __letoh32(...) __builtin_bswap32(ntohl(__VA_ARGS__))
-#define __letoh16(...) __builtin_bswap16(ntohs(__VA_ARGS__))
-
+#include "endian.h"
 
 
 class BadLoadSize { };
@@ -55,22 +38,32 @@ void load( T & destination, const char * const buffer, size_t & offset ) {
 Wave::Chunk::Chunk() : ChunkSize(0) {
     memset( ChunkID, 0, 4 );
 }
-Wave::Chunk::Chunk( const char * buffer, const size_t & buffer_size = -1 ) {
+Wave::Chunk::Chunk( const char * const buffer, const size_t buffer_size ) {
     if ( buffer_size < 8 )
-        throw BadFormat();
+        throw BadChunkFormat();
 
     size_t offset = 0;
 
+    // load ChunkID
     memcpy( ChunkID, buffer + offset, 4 );
     offset += 4;
 
+
+    // load ChunkSize
     load( ChunkSize, buffer, offset );
-    
-    print();
+
+    // check if the entire chunk is in buffer
+    if ( buffer_size < 8 + ChunkSize )
+        throw BadChunkFormat();
+
 }
 Wave::Chunk & Wave::Chunk::operator=( const Chunk & c ) {
-    ChunkSize = c.ChunkSize;
+
+    // copy ChunkID
     memcpy( ChunkID, c.ChunkID, 4 );
+    // copy ChunkSize
+    ChunkSize = c.ChunkSize;
+
     return *this;
 }
 void Wave::Chunk::print() const {
@@ -82,7 +75,7 @@ void Wave::Chunk::print() const {
 
 
 
-Wave::fmt_Chunk::fmt_Chunk() 
+Wave::fmt_Chunk::fmt_Chunk()
 : Chunk(),
   AudioFormat(0),
   NumChannels(0),
@@ -91,38 +84,41 @@ Wave::fmt_Chunk::fmt_Chunk()
   BlockAlign(0),
   BitsPerSample(0)
 {}
-Wave::fmt_Chunk::fmt_Chunk( const char * buffer, const size_t & buffer_size ) 
+Wave::fmt_Chunk::fmt_Chunk( const char * const buffer, const size_t buffer_size )
 : Chunk( buffer, buffer_size ) {
-    if ( buffer_size < 16+8 || ChunkSize != 16 )
-        throw BadFormat();
 
     size_t offset = 8;
 
-
+    // load AudioFormat
     load( AudioFormat   , buffer, offset );
-    if ( AudioFormat != 1 )
-        throw BadFormat();
 
+    // load NumChannels
     load( NumChannels   , buffer, offset );
 
+    // load SampleRate
     load( SampleRate    , buffer, offset );
 
+    // load ByteRate
     load( ByteRate      , buffer, offset );
 
+    // load BlockAlign
     load( BlockAlign    , buffer, offset );
 
+    // load BitsPerSample
     load( BitsPerSample , buffer, offset );
-    if ( BitsPerSample & 0b111 || BitsPerSample > 32 )
-        throw BadFormat();
+    
 }
 Wave::fmt_Chunk & Wave::fmt_Chunk::operator=( const fmt_Chunk & c ) {
+    // copy ChunkID and ChunkSize
     (Chunk&)(*this) = c ;
-    AudioFormat = c.AudioFormat;
-    NumChannels = c.NumChannels;
-    SampleRate = c.SampleRate;
-    ByteRate = c.ByteRate;
-    BlockAlign = c.BlockAlign;
-    BitsPerSample = c.BitsPerSample;
+
+    AudioFormat     = c.AudioFormat     ;
+    NumChannels     = c.NumChannels     ;
+    SampleRate      = c.SampleRate      ;
+    ByteRate        = c.ByteRate        ;
+    BlockAlign      = c.BlockAlign      ;
+    BitsPerSample   = c.BitsPerSample   ;
+
     return *this;
 }
 
@@ -132,7 +128,7 @@ Wave::fmt_Chunk & Wave::fmt_Chunk::operator=( const fmt_Chunk & c ) {
 Wave::dataChunk::dataChunk()
 : Chunk(), data(0)
 { }
-Wave::dataChunk::dataChunk( const char * buffer, const size_t & buffer_size )
+Wave::dataChunk::dataChunk( const char * const buffer, const size_t buffer_size )
 : Chunk( buffer, buffer_size ) {
     data = new uint8_t[ ChunkSize ];
     memcpy( data, buffer + 8, ChunkSize );
@@ -143,55 +139,69 @@ Wave::dataChunk::~dataChunk() {
     data = 0;
 }
 Wave::dataChunk & Wave::dataChunk::operator=( const dataChunk & c ) {
+    // copy ChunkID and ChunkSize
     (Chunk&)(*this) = c ;
+
+    // copy data
     if ( data )
         delete [] data;
     data = new uint8_t[ ChunkSize ];
     memcpy( data, c.data, c.ChunkSize );
+
     return *this;
 }
-void Wave::dataChunk::print_data( size_t num ) const {
+void Wave::dataChunk::print_data( uint32_t num = -1 ) const {
+    num = std::max( ChunkSize, num );
     for ( uint8_t i = 0; i < num; i++ )
-        printf( "%#04x\n", data[i] );
+        printf( "%c", data[i] );
 }
 
 
 
 
-constexpr const char Wave::MainChunk::WAVE_ChunkIDs[2][4];
-constexpr const char Wave::MainChunk::WAVE_Format[4];
+constexpr const char Wave::RiffChunk::RIFF_Format[4];
+constexpr const char Wave::WAVE_ChunkIDs[2][4];
+constexpr const char Wave::WAVE_Format[4];
 
-Wave::MainChunk::MainChunk() 
+Wave::RiffChunk::RiffChunk()
 : Chunk(), fmt__Chunk(), data_Chunk() {
     memset( Format, 0, 4 );
 }
-Wave::MainChunk::MainChunk( const char * buffer, const size_t & buffer_size )
+Wave::RiffChunk::RiffChunk( const char * const buffer, const size_t buffer_size )
 : Chunk( buffer, buffer_size ) {
+
+    if ( memcmp( ChunkID, RIFF_Format, 4 ) != 0 )
+        throw BadRiffFormat();
+
     size_t offset = 8;
 
     // Format
     memcpy( Format, buffer + offset, 4 );
     offset += 4;
 
-    // if the Format is Wave
-    if ( memcmp( Format, WAVE_Format, 4 ) == 0 ) {
 
-        // fmt chunk
-        fmt__Chunk = fmt_Chunk( buffer + offset, buffer_size - offset );
-        if ( memcmp( fmt__Chunk.ChunkID, WAVE_ChunkIDs[0], 4 ) != 0 ) throw BadFormat();
-        offset += fmt__Chunk.ChunkSize + 8;
+    while ( offset < ChunkSize + 8 ) {
+        Chunk c( buffer + offset, buffer_size - offset );
 
-        // data chunk
-        data_Chunk = dataChunk( buffer + offset, buffer_size - offset );
-        if ( memcmp( data_Chunk.ChunkID, WAVE_ChunkIDs[1], 4 ) != 0 ) throw BadFormat();
+        // if the ID is "fmt "
+        if ( memcmp( c.ChunkID, WAVE_ChunkIDs[0], 4 ) == 0 ) {
+            fmt__Chunk = fmt_Chunk( buffer + offset, buffer_size - offset );
+        }
+        // if the ID is "data"
+        else if ( memcmp( c.ChunkID, WAVE_ChunkIDs[1], 4 ) == 0 ) {
+            data_Chunk = dataChunk( buffer + offset, buffer_size - offset );
+        }
+        else {
+            miscChunks.emplace_back( buffer + offset, buffer_size - offset );
+        }
 
-    }
-    else {
-        throw BadFormat();
+        offset += c.ChunkSize + 8;
+
     }
 
 }
-Wave::MainChunk & Wave::MainChunk::operator=( const MainChunk & c ) {
+Wave::RiffChunk & Wave::RiffChunk::operator=( const RiffChunk & c ) {
+    (Chunk&)(*this) = c ;
     memcpy( Format, c.Format, 4 );
     fmt__Chunk = c.fmt__Chunk;
     data_Chunk = c.data_Chunk;
@@ -207,7 +217,7 @@ Wave::Wave( const std::string & filename ) {
 
     if ( !ifs )
         throw CouldNotOpenFile();
-    
+
     // get length of file:
     ifs.seekg ( 0, ifs.end );
     size_t buffer_size = ifs.tellg();
@@ -218,19 +228,42 @@ Wave::Wave( const std::string & filename ) {
     ifs.read( buffer, buffer_size );
     ifs.close();
 
-    file = MainChunk( buffer, buffer_size );
+    file = RiffChunk( buffer, buffer_size );
+    delete buffer;
 
-    BytesPerSample = file.fmt__Chunk.BitsPerSample >> 3;
+
+    // stop if the Format is not Wave
+    if ( memcmp( file.Format, WAVE_Format, 4 ) != 0 )
+        throw BadWaveFormat();
+
+    // check that Fmt Chunk is correct size
+    if ( file.fmt__Chunk.ChunkSize != 16 )
+        throw BadWaveFormat();
+
+    // check for PCM
+    if ( file.fmt__Chunk.AudioFormat != 1 )
+        throw BadWaveFormat();
+
+    // check BitsPerSample
+    if ( file.fmt__Chunk.BitsPerSample & 0b111 || file.fmt__Chunk.BitsPerSample > 32 )
+        throw BadWaveFormat();
+
 }
 
 void Wave::print() const {
     file.print();
+    file.fmt__Chunk.print();
+    file.data_Chunk.print();
+    for ( const Chunk & c : file.miscChunks )
+        c.print();
 }
 
-uint32_t Wave::getSample( size_t i, uint16_t channel ) const {
+uint32_t Wave::getSample( const size_t i, const uint16_t channel ) const {
+
+    uint8_t BytesPerSample = file.fmt__Chunk.BitsPerSample >> 3;
 
     uint32_t out = 0;
-    size_t offset = (BytesPerSample * ( i*file.fmt__Chunk.NumChannels + channel));
+    size_t offset = BytesPerSample * ( i*file.fmt__Chunk.NumChannels + channel);
 
     if ( channel >= file.fmt__Chunk.NumChannels || offset > file.data_Chunk.ChunkSize - BytesPerSample )
         throw OutOfRange();
@@ -242,8 +275,24 @@ uint32_t Wave::getSample( size_t i, uint16_t channel ) const {
     );
 
     out = __letoh32(out);
-    
+
     // printf( "%d,%d : %#010x\n", channel, i, out );
 
     return out;
+}
+
+void Wave::printSamples( const size_t num_samples ) const {
+    try {
+        for ( size_t sample = 0; sample < num_samples; sample++ ) {
+            for ( size_t channel = 0; channel < file.fmt__Chunk.NumChannels; channel++ ) {
+                if ( channel != 0 )
+                    printf(" ---- ");
+                printf( "%02d : %d   =  %#06x", sample, channel, getSample( sample, channel ) );
+            }
+            printf("\n");
+        }
+    } catch ( OutOfRange e ) {
+        printf("Requested too many samples.\n");
+    }
+
 }

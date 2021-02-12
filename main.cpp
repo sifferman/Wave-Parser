@@ -14,7 +14,11 @@ class CouldNotOpenFile { };
 int main() {
 
     Wave w( "TESTS/test_44.1.wav" );
-    w.getSample( 4, 0 );
+    
+    w.print();
+    cout << "printing samples:\n" << endl;
+
+    w.printSamples( 100 );
     
     return 0;
 }
