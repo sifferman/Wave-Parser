@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cstdio>
 
-#include "endian.h"
+#include "wave_endian.h"
 
 
 

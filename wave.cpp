@@ -5,8 +5,9 @@
 #include "wave.h"
 
 #include <fstream>
+#include <cstring>
 
-#include "endian.h"
+#include "wave_endian.h"
 
 
 
@@ -146,7 +147,7 @@ void Wave::printChunkMetadata() const {
     file.formatChunk.print();
     printf("\nData Chunk:\n");
     file.dataChunk.print();
-    printf( "\n%d Misc. Chunks:\n", file.miscChunks.size() );
+    printf( "\n%ld Misc. Chunks:\n", file.miscChunks.size() );
     for ( const RIFF::Chunk & c : file.miscChunks )
         c.print();
 }
@@ -167,16 +168,16 @@ void Wave::printSamples( const size_t num_samples ) const {
                     printf(" ---- ");
                 switch ( file.formatChunk.BitsPerSample ) {
                 case 8:
-                    printf( "%02d : %d   =  %#04x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02ld : %ld   =  %#04x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 16:
-                    printf( "%02d : %d   =  %#06x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02ld : %ld   =  %#06x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 24:
-                    printf( "%02d : %d   =  %#08x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02ld : %ld   =  %#08x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 32:
-                    printf( "%02d : %d   =  %#010x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02ld : %ld   =  %#010x", sample, channel, getSample( sample, channel ) );
                     break;
                 default:
                     throw OutOfRange();

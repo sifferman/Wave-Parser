@@ -1,8 +1,8 @@
 
-/* endian.h */
+/* wave_endian.h */
 
-#ifndef _ENDIAN_H
-#define _ENDIAN_H
+#ifndef _WAVE_ENDIAN_H
+#define _WAVE_ENDIAN_H
 
 #if defined _WIN32 || defined __CYGWIN__
     // https://docs.microsoft.com/en-us/windows/win32/api/winsock2/
