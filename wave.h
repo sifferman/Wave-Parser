@@ -6,6 +6,8 @@
 #ifndef _WAVE_H_
 #define _WAVE_H_
 
+#include "riff.h"
+
 #include <string>
 #include <vector>
 
@@ -13,75 +15,50 @@
 
 class Wave {
     public:
-        Wave( const std::string & filename );
-        void print() const;
+        // Default Constructor
+        Wave() { }
+        // Loads wave data from a file.
+        Wave( const std::string & filename ) {
+            load( filename );
+        }
+        // Loads wave data from a file.
+        void load( const std::string & filename );
+
+        // Writes wave data to a file.
+        void write( const std::string & filename ) const;
+
+        // Print all subchunk IDs and sizes.
+        void printChunkMetadata() const;
+
+        // Print all MiscChunk data.
+        void printMiscChunkData( const size_t num_samples = -1 ) const;
+
+        // Print format.
+        void printFormat() const {
+            file.formatChunk.printFormat();
+        }
+
+        // Returns the ith sample in the designated channel.
         uint32_t getSample( const size_t i, const uint16_t channel ) const;
-        void printSamples( const size_t num_samples ) const;
+
+        // Prints num_samples samples from the wave file.
+        void printSamples( const size_t num_samples = -1 ) const;
 
     private:
+        // Exception for if the input file could not be opened.
         class CouldNotOpenFile { };
+
+        // Exception for if the input file was not a wave file.
         class BadWaveFormat { };
+
+        // Exception for if a requested sample was out of range.
         class OutOfRange { };
 
-        static constexpr const char WAVE_ChunkIDs[2][4] = { {'f','m','t',' '}, {'d','a','t','a'} };
-        static constexpr const char WAVE_Format[4] = {'W','A','V','E'};
-
-        struct Chunk {
-            class BadChunkFormat { };
-
-            Chunk();
-            Chunk( const char * const buffer, const size_t buffer_size );
-            Chunk & operator=( const Chunk & c );
-
-            void print() const;
-
-            char            ChunkID[4]  ;
-            uint32_t        ChunkSize   ;
-        };
-
-        struct fmt_Chunk : public Chunk {
-
-            fmt_Chunk();
-            fmt_Chunk( const char * const buffer, const size_t buffer_size );
-            fmt_Chunk & operator=( const fmt_Chunk & c );
-
-            uint16_t    AudioFormat     ;
-            uint16_t    NumChannels     ;
-            uint32_t    SampleRate      ;
-            uint32_t    ByteRate        ;
-            uint16_t    BlockAlign      ;
-            uint16_t    BitsPerSample   ;
-        };
-
-        struct dataChunk : public Chunk {
-
-            dataChunk();
-            dataChunk( const char * const buffer, const size_t buffer_size );
-            dataChunk & operator=( const dataChunk & c );
-            ~dataChunk();
-
-            void print_data( uint32_t num ) const;
-
-            uint8_t * data;
-        };
-
-        struct RiffChunk : public Chunk {
-            class BadRiffFormat { };
-
-            static constexpr const char RIFF_Format[4] = {'R','I','F','F'};
-
-            RiffChunk();
-            RiffChunk( const char * const buffer, const size_t buffer_size );
-            RiffChunk & operator=( const RiffChunk & c );
-
-            char            Format[4]   ;
-            fmt_Chunk       fmt__Chunk  ;
-            dataChunk       data_Chunk  ;
-
-            std::vector<dataChunk> miscChunks;
-        };
-
-        RiffChunk file;
+        // Ensure that file is a wave.
+        void verify();
+        
+        // Holds all the data for the wave file.
+        RIFF::RiffChunk file;
 };
 
 #endif

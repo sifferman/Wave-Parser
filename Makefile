@@ -6,7 +6,7 @@
 #	[commands {separated by tab}]
 
 CXX=g++
-DEPENDENCIES=main.o wave.o
+DEPENDENCIES=main.o wave.o riff.o
 EXE=main
 CXXFLAGS=--std=c++11 -Wall -lws2_32
 # CXXFLAGS=--std=c++11 -Wall

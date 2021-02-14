@@ -11,14 +11,31 @@ using namespace std;
 
 class CouldNotOpenFile { };
 
-int main() {
+int main( int argc, char * argv[] ) {
 
-    Wave w( "TESTS/test_44.1.wav" );
-    
-    w.print();
-    cout << "printing samples:\n" << endl;
+    if ( argc < 2 ) {
+        cerr << "[ERROR]: Did not give file name." << endl;
+        return 1;
+    }
 
-    w.printSamples( 100 );
+    Wave w( argv[1] );
     
+    cout << "Printing Chunk Metadata:" << endl;
+    w.printChunkMetadata();
+    cout << endl;
+
+    cout << "Printing samples:" << endl;
+    w.printSamples(30);
+    cout << endl;
+
+    // cout << "Printing misc. chunk data:" << endl;
+    // w.printMiscChunkData(100);
+    // cout << endl;
+
+    w.printFormat();
+
+    w.write( "test.wav" );
+    
+    cout << "Done." << endl;
     return 0;
 }
