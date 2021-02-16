@@ -104,6 +104,9 @@ struct RiffChunk : public Chunk {
     // Creates empty RiffChunk.
     RiffChunk();
 
+    // Destructor for RiffChunk.
+    ~RiffChunk();
+
     // Loads RiffChunk from buffer.
     uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 

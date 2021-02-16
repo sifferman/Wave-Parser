@@ -242,6 +242,12 @@ RIFF::RiffChunk::RiffChunk()
 : Chunk(), formatChunk(), dataChunk() {
     memset( Format, 0, 4 );
 }
+RIFF::RiffChunk::~RiffChunk() {
+    for ( auto c_p : miscChunks ) if ( c_p ) {
+            delete c_p;
+            c_p = 0;
+    }
+}
 uint32_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
 
     uint32_t size = ((Chunk*)(this))->load( buffer, buffer_size );
