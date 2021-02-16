@@ -25,11 +25,11 @@
 RIFF::Chunk::Chunk() : ChunkSize(0) {
     memset( ChunkID, 0, 4 );
 }
-size_t RIFF::Chunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
+uint32_t RIFF::Chunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
     if ( buffer_size < 8 )
         throw BadChunkFormat();
 
-    size_t offset = 0;
+    uint32_t offset = 0;
 
     // load ChunkID
     memcpy( ChunkID, buffer + offset, 4 );
@@ -46,11 +46,11 @@ size_t RIFF::Chunk::load( const uint8_t * const buffer, const size_t buffer_size
     return 8 + ChunkSize;
 
 }
-size_t RIFF::Chunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
+uint32_t RIFF::Chunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
     if ( buffer_size < 8 )
         throw BadChunkFormat();
 
-    size_t offset = 0;
+    uint32_t offset = 0;
 
     // load ChunkID
     memcpy( buffer + offset, ChunkID, 4 );
@@ -87,9 +87,9 @@ void RIFF::Chunk::print() const {
 RIFF::MiscChunk::MiscChunk()
 : Chunk(), data(0)
 { }
-size_t RIFF::MiscChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
+uint32_t RIFF::MiscChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
 
-    size_t size = ((Chunk*)(this))->load( buffer, buffer_size );
+    uint32_t size = ((Chunk*)(this))->load( buffer, buffer_size );
 
     if ( data )
         delete [] data;
@@ -99,9 +99,9 @@ size_t RIFF::MiscChunk::load( const uint8_t * const buffer, const size_t buffer_
 
     return size;
 }
-size_t RIFF::MiscChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
+uint32_t RIFF::MiscChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
 
-    size_t size = ((Chunk*)(this))->write( buffer, buffer_size );
+    uint32_t size = ((Chunk*)(this))->write( buffer, buffer_size );
 
     memcpy( buffer + 8, data, ChunkSize );
 
@@ -140,10 +140,10 @@ RIFF::FormatChunk::FormatChunk()
   BlockAlign(0),
   BitsPerSample(0)
 {}
-size_t RIFF::FormatChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
+uint32_t RIFF::FormatChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
 
-    size_t size = ((Chunk*)(this))->load( buffer, buffer_size );
-    size_t offset = 8;
+    uint32_t size = ((Chunk*)(this))->load( buffer, buffer_size );
+    uint32_t offset = 8;
 
     // load AudioFormat
     load_le( AudioFormat   , buffer, offset );
@@ -166,10 +166,10 @@ size_t RIFF::FormatChunk::load( const uint8_t * const buffer, const size_t buffe
     return size;
 
 }
-size_t RIFF::FormatChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
+uint32_t RIFF::FormatChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
 
-    size_t size = ((Chunk*)(this))->write( buffer, buffer_size );
-    size_t offset = 8;
+    uint32_t size = ((Chunk*)(this))->write( buffer, buffer_size );
+    uint32_t offset = 8;
 
     // write AudioFormat
     write_le( AudioFormat   , buffer, offset );
@@ -216,10 +216,10 @@ RIFF::DataChunk::DataChunk()
 : MiscChunk()
 { }
 
-size_t RIFF::DataChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
+uint32_t RIFF::DataChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
     return ((MiscChunk*)(this))->load( buffer, buffer_size );
 }
-size_t RIFF::DataChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
+uint32_t RIFF::DataChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
     return ((MiscChunk*)(this))->write( buffer, buffer_size );
 }
 
@@ -242,14 +242,14 @@ RIFF::RiffChunk::RiffChunk()
 : Chunk(), formatChunk(), dataChunk() {
     memset( Format, 0, 4 );
 }
-size_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
+uint32_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_size ) {
 
-    size_t size = ((Chunk*)(this))->load( buffer, buffer_size );
+    uint32_t size = ((Chunk*)(this))->load( buffer, buffer_size );
 
     if ( memcmp( ChunkID, RIFF_ChunkID, 4 ) != 0 )
         throw BadRiffFormat();
 
-    size_t offset = 8;
+    uint32_t offset = 8;
 
     // Format
     memcpy( Format, buffer + offset, 4 );
@@ -258,7 +258,7 @@ size_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_
 
     while ( offset < ChunkSize + 8 ) {
         Chunk c;
-        size_t subsize = c.load( buffer + offset, buffer_size - offset );
+        uint32_t subsize = c.load( buffer + offset, buffer_size - offset );
 
         // if the ID is "fmt "
         if ( memcmp( c.ChunkID, WAVE_ChunkIDs[0], 4 ) == 0 ) {
@@ -269,8 +269,8 @@ size_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_
             dataChunk.load( buffer + offset, buffer_size - offset );
         }
         else {
-            miscChunks.emplace_back();
-            miscChunks.back().load( buffer + offset, buffer_size - offset );
+            miscChunks.push_back( new MiscChunk() );
+            miscChunks.back()->load( buffer + offset, buffer_size - offset );
         }
 
         offset += subsize;
@@ -280,14 +280,14 @@ size_t RIFF::RiffChunk::load( const uint8_t * const buffer, const size_t buffer_
 
     return size;
 }
-size_t RIFF::RiffChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
+uint32_t RIFF::RiffChunk::write( uint8_t * const buffer, const size_t buffer_size ) const {
 
-    size_t size = ((Chunk*)(this))->write( buffer, buffer_size );
+    uint32_t size = ((Chunk*)(this))->write( buffer, buffer_size );
 
     if ( memcmp( ChunkID, RIFF_ChunkID, 4 ) != 0 )
         throw BadRiffFormat();
 
-    size_t offset = 8;
+    uint32_t offset = 8;
 
     // Format
     memcpy( buffer + offset, Format, 4 );
@@ -296,8 +296,8 @@ size_t RIFF::RiffChunk::write( uint8_t * const buffer, const size_t buffer_size 
     offset += formatChunk.write( buffer + offset, buffer_size - offset );
     offset += dataChunk.write( buffer + offset, buffer_size - offset );
 
-    for ( const MiscChunk & c : miscChunks ) {
-        offset += c.write( buffer + offset, buffer_size - offset );
+    for ( const auto c : miscChunks ) {
+        offset += c->write( buffer + offset, buffer_size - offset );
     }
 
     return size;

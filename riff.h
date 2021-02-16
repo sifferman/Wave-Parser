@@ -18,17 +18,17 @@ struct Chunk {
     Chunk();
 
     // Loads Chunk from buffer.
-    size_t load( const uint8_t * const buffer, const size_t buffer_size );
+    uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 
     // Writes Chunk data to buffer.
-    size_t write( uint8_t * const buffer, const size_t buffer_size ) const;
+    uint32_t write( uint8_t * const buffer, const size_t buffer_size ) const;
 
     // Print the current Chunk ID and size.
     void print() const;
 
     
-    uint8_t            ChunkID[4]  ; // Current Chunk ID.
-    uint32_t        ChunkSize   ; // Current Chunk size.
+    uint8_t     ChunkID[4]  ; // Current Chunk ID.
+    uint32_t    ChunkSize   ; // Current Chunk size.
 };
 
 struct MiscChunk : public Chunk {
@@ -37,10 +37,10 @@ struct MiscChunk : public Chunk {
     MiscChunk();
 
     // Loads MiscChunk from buffer.
-    size_t load( const uint8_t * const buffer, const size_t buffer_size );
+    uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 
     // Writes MiscChunk data to buffer.
-    size_t write( uint8_t * const buffer, const size_t buffer_size ) const;
+    uint32_t write( uint8_t * const buffer, const size_t buffer_size ) const;
 
     // Destructor for MiscChunk.
     ~MiscChunk();
@@ -58,10 +58,10 @@ struct FormatChunk : public Chunk {
     FormatChunk();
 
     // Loads FormatChunk from buffer.
-    size_t load( const uint8_t * const buffer, const size_t buffer_size );
+    uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 
     // Writes FormatChunk data to buffer.
-    size_t write( uint8_t * const buffer, const size_t buffer_size ) const;
+    uint32_t write( uint8_t * const buffer, const size_t buffer_size ) const;
 
     void printFormat() const;
 
@@ -80,13 +80,10 @@ struct DataChunk : public MiscChunk {
     DataChunk();
 
     // Loads DataChunk from buffer.
-    size_t load( const uint8_t * const buffer, const size_t buffer_size );
+    uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 
     // Writes DataChunk data to buffer.
-    size_t write( uint8_t * const buffer, const size_t buffer_size ) const;
-
-    // Creates DataChunk from existing DataChunk.
-    DataChunk & operator=( const DataChunk & c );
+    uint32_t write( uint8_t * const buffer, const size_t buffer_size ) const;
 
 };
 
@@ -108,20 +105,17 @@ struct RiffChunk : public Chunk {
     RiffChunk();
 
     // Loads RiffChunk from buffer.
-    size_t load( const uint8_t * const buffer, const size_t buffer_size );
+    uint32_t load( const uint8_t * const buffer, const size_t buffer_size );
 
     // Writes RiffChunk data to buffer.
-    size_t write( uint8_t * const buffer, const size_t buffer_size ) const;
-
-    // Creates RiffChunk from existing RiffChunk.
-    RiffChunk & operator=( const RiffChunk & c );
+    uint32_t write( uint8_t * const buffer, const size_t buffer_size ) const;
 
 
-    uint8_t            Format[4]   ;   // Contains the letters "WAVE".
+    uint8_t         Format[4]   ;   // Contains the letters "WAVE".
     FormatChunk     formatChunk ;   // Describes the format the the sound information in dataChunk.
     DataChunk       dataChunk   ;   // Contains the raw sound data.
 
-    std::vector<MiscChunk> miscChunks;  // Contains all other chunks that are not the format or data chunks.
+    std::vector<MiscChunk*> miscChunks;  // Contains all other chunks that are not the format or data chunks.
 };
 
 }

@@ -25,6 +25,12 @@ void Wave::load( const std::string & filename ) {
     size_t buffer_size = ifs.tellg();
     ifs.seekg( 0, ifs.beg );
 
+    // ensures the length is allowed
+    if ( buffer_size > 0xFFFFFFFFULL ) {
+        ifs.close();
+        throw FileTooLarge();
+    }
+
     // load into buffer
     uint8_t * buffer = new uint8_t[ buffer_size ];
     ifs.read( (char*)buffer, buffer_size );
@@ -43,10 +49,10 @@ void Wave::write( const std::string & filename ) const {
     std::ofstream ofs( filename, std::ofstream::binary );
 
     if ( !ofs )
-        throw CouldNotOpenFile();
+        throw CouldNotCreateFile();
 
     // get length of file:
-    size_t buffer_size = file.ChunkSize + 8;
+    uint32_t buffer_size = file.ChunkSize + 8;
 
     // load into buffer
     uint8_t * buffer = new uint8_t[ buffer_size ];
@@ -101,7 +107,7 @@ void Wave::verify() {
 
 
 
-uint32_t Wave::getSample( const size_t i, const uint16_t channel ) const {
+uint32_t Wave::getSample( const uint32_t i, const uint16_t channel ) const {
 
     if ( file.formatChunk.BitsPerSample > 32 )
         throw OutOfRange();
@@ -109,7 +115,7 @@ uint32_t Wave::getSample( const size_t i, const uint16_t channel ) const {
     uint8_t BytesPerSample = file.formatChunk.BitsPerSample >> 3;
 
     uint32_t out = 0;
-    size_t offset = BytesPerSample * ( i*file.formatChunk.NumChannels + channel);
+    uint32_t offset = BytesPerSample * ( i*file.formatChunk.NumChannels + channel);
 
     if ( channel >= file.formatChunk.NumChannels || offset > file.dataChunk.ChunkSize - BytesPerSample )
         throw OutOfRange();
@@ -147,37 +153,37 @@ void Wave::printChunkMetadata() const {
     file.formatChunk.print();
     printf("\nData Chunk:\n");
     file.dataChunk.print();
-    printf( "\n%ld Misc. Chunks:\n", file.miscChunks.size() );
-    for ( const RIFF::Chunk & c : file.miscChunks )
-        c.print();
+    printf( "\n%d Misc. Chunks:\n", (uint32_t) file.miscChunks.size() );
+    for ( const auto c : file.miscChunks )
+        c->print();
 }
 
-void Wave::printMiscChunkData( const size_t num ) const {
-    for ( const RIFF::MiscChunk & c : file.miscChunks ) {
-        c.print();
-        c.print_data( num );
+void Wave::printMiscChunkData( const uint32_t num ) const {
+    for ( const auto c : file.miscChunks ) {
+        c->print();
+        c->print_data( num );
         printf("\n");
     }
 }
 
-void Wave::printSamples( const size_t num_samples ) const {
+void Wave::printSamples( const uint32_t num_samples ) const {
     try {
-        for ( size_t sample = 0; sample < num_samples; sample++ ) {
-            for ( size_t channel = 0; channel < file.formatChunk.NumChannels; channel++ ) {
+        for ( uint32_t sample = 0; sample < num_samples; sample++ ) {
+            for ( uint32_t channel = 0; channel < file.formatChunk.NumChannels; channel++ ) {
                 if ( channel != 0 )
                     printf(" ---- ");
                 switch ( file.formatChunk.BitsPerSample ) {
                 case 8:
-                    printf( "%02ld : %ld   =  %#04x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02d : %d   =  %#04x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 16:
-                    printf( "%02ld : %ld   =  %#06x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02d : %d   =  %#06x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 24:
-                    printf( "%02ld : %ld   =  %#08x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02d : %d   =  %#08x", sample, channel, getSample( sample, channel ) );
                     break;
                 case 32:
-                    printf( "%02ld : %ld   =  %#010x", sample, channel, getSample( sample, channel ) );
+                    printf( "%02d : %d   =  %#010x", sample, channel, getSample( sample, channel ) );
                     break;
                 default:
                     throw OutOfRange();

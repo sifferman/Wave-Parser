@@ -2,15 +2,14 @@
 # Makefile #
 
 
-# [target]: [Dependencies]
-#	[commands {separated by tab}]
-
 CXX=g++
 DEPENDENCIES=main.o wave.o riff.o
 EXE=main
-CXXFLAGS=--std=c++11 -Wall -lws2_32
+
+# Windows #
+# CXXFLAGS=--std=c++11 -Wall -lws2_32
+# UNIX #
 # CXXFLAGS=--std=c++11 -Wall
-# REMOVE=
 
 all: clean ${EXE}
 
@@ -19,4 +18,3 @@ ${EXE}: ${DEPENDENCIES}
 
 clean:
 	rm -f *.o ${EXE}
-# ${REMOVE}

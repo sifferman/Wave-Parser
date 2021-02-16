@@ -28,11 +28,12 @@ int main( int argc, char * argv[] ) {
     w.printSamples(30);
     cout << endl;
 
-    // cout << "Printing misc. chunk data:" << endl;
-    // w.printMiscChunkData(100);
-    // cout << endl;
+    cout << "Printing misc. chunk data:" << endl;
+    w.printMiscChunkData(100);
+    cout << endl;
 
     w.printFormat();
+    cout << endl;
 
     w.write( "test.wav" );
     

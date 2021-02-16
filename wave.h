@@ -31,7 +31,7 @@ class Wave {
         void printChunkMetadata() const;
 
         // Print all MiscChunk data.
-        void printMiscChunkData( const size_t num_samples = -1 ) const;
+        void printMiscChunkData( const uint32_t num_samples = -1 ) const;
 
         // Print format.
         void printFormat() const {
@@ -39,14 +39,20 @@ class Wave {
         }
 
         // Returns the ith sample in the designated channel.
-        uint32_t getSample( const size_t i, const uint16_t channel ) const;
+        uint32_t getSample( const uint32_t i, const uint16_t channel ) const;
 
         // Prints num_samples samples from the wave file.
-        void printSamples( const size_t num_samples = -1 ) const;
+        void printSamples( const uint32_t num_samples = -1 ) const;
 
     private:
         // Exception for if the input file could not be opened.
         class CouldNotOpenFile { };
+
+        // Exception for if the input file is too large.
+        class FileTooLarge { };
+
+        // Exception for if the output file could not be created.
+        class CouldNotCreateFile { };
 
         // Exception for if the input file was not a wave file.
         class BadWaveFormat { };

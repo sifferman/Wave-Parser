@@ -44,8 +44,8 @@ class BadSize { };
  * the correct endianness.
  */
 template <class T>
-void load_le( T & destination, const uint8_t * const buffer, size_t & offset ) {
-    size_t length = sizeof(destination);
+void load_le( T & destination, const uint8_t * const buffer, uint32_t & offset ) {
+    uint8_t length = sizeof(destination);
     memcpy( &destination, buffer + offset, length );
     switch ( length ) {
     case 1:
@@ -68,8 +68,8 @@ void load_le( T & destination, const uint8_t * const buffer, size_t & offset ) {
  * correct endianness.
  */
 template <class T>
-void write_le( const T & source, uint8_t * const buffer, size_t & offset ) {
-    size_t length = sizeof(source);
+void write_le( const T & source, uint8_t * const buffer, uint32_t & offset ) {
+    uint8_t length = sizeof(source);
     memcpy( buffer + offset, &source, length );
     switch ( length ) {
     case 1:
