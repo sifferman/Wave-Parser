@@ -15,7 +15,7 @@
 
 void Wave::load( const std::string & filename ) {
 
-    std::ifstream ifs( filename, std::ofstream::binary );
+    std::ifstream ifs( filename, std::ios_base::binary );
 
     if ( !ifs )
         throw CouldNotOpenFile();
@@ -46,7 +46,7 @@ void Wave::load( const std::string & filename ) {
 
 void Wave::write( const std::string & filename ) const {
 
-    std::ofstream ofs( filename, std::ofstream::binary );
+    std::ofstream ofs( filename, std::ios_base::binary );
 
     if ( !ofs )
         throw CouldNotCreateFile();
