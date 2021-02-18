@@ -14,8 +14,9 @@ It follows the file format layed out in <http://soundfile.sapp.org/doc/WaveForma
 
 ## Getting Started
 
-To build, open the Makefile and ensure that the correct g++ compiler flags are used according to your OS. If you are on Windows, be sure to include the -lws2_32 flag.
+How to build:
 
-Then run `make`.
+1. Edit the Makefile so that the correct g++ compiler flags are used according to your OS. (If you are on Windows, be sure to include the -lws2_32 flag.)
+2. Run `make`.
 
-To open a wave file, run `./main <FILENAME>`.
+After building, run `./main <FILENAME>`.
