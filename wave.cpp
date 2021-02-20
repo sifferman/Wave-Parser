@@ -38,7 +38,7 @@ void Wave::load( const std::string & filename ) {
 
     // Initialize file
     file.load( buffer, buffer_size );
-    delete buffer;
+    delete [] buffer;
 
     verify();
 
@@ -63,7 +63,7 @@ void Wave::write( const std::string & filename ) const {
     ofs.write( (char*)buffer, buffer_size );
 
     ofs.close();
-    delete buffer;
+    delete [] buffer;
 
 }
 
