@@ -26,7 +26,7 @@ struct Chunk {
     // Print the current Chunk ID and size.
     void print() const;
 
-    
+
     uint8_t     ChunkID[4]  ; // Current Chunk ID.
     uint32_t    ChunkSize   ; // Current Chunk size.
 };
@@ -88,7 +88,7 @@ struct DataChunk : public MiscChunk {
 };
 
 struct RiffChunk : public Chunk {
-    
+
     // Exception for if ChunkID does not match the expected value.
     class BadRiffFormat { };
 

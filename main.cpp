@@ -19,7 +19,7 @@ int main( int argc, char * argv[] ) {
     }
 
     Wave w( argv[1] );
-    
+
     cout << "Printing Chunk Metadata:" << endl;
     w.printChunkMetadata();
     cout << endl;
@@ -36,7 +36,7 @@ int main( int argc, char * argv[] ) {
     cout << endl;
 
     w.write( "test.wav" );
-    
+
     cout << "Done." << endl;
     return 0;
 }

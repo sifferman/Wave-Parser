@@ -62,7 +62,7 @@ class Wave {
 
         // Ensure that file is a wave.
         void verify();
-        
+
         // Holds all the data for the wave file.
         RIFF::RiffChunk file;
 };
