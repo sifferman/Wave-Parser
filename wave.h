@@ -41,18 +41,33 @@ class Wave {
         // Returns the ith sample in the designated channel.
         uint32_t getSample( const uint32_t i, const uint16_t channel ) const;
 
-        // Returns a pointer to the sample data.
+        // Prints num_samples samples from the wave file.
+        void printSamples( const uint32_t num_samples = -1 ) const;
+
+        uint16_t GetAudioFormat() const {
+            return file.formatChunk.AudioFormat;
+        }
+        uint16_t GetNumChannels() const {
+            return file.formatChunk.NumChannels;
+        }
+        uint32_t GetSampleRate() const {
+            return file.formatChunk.SampleRate;
+        }
+        uint32_t GetByteRate() const {
+            return file.formatChunk.ByteRate;
+        }
+        uint16_t GetBlockAlign() const {
+            return file.formatChunk.BlockAlign;
+        }
+        uint16_t GetBitsPerSample() const {
+            return file.formatChunk.BitsPerSample;
+        }
         const void * getSampleMemory() const {
             return file.dataChunk.data;
         }
-
-        // Returns a pointer to the sample data.
         uint32_t getSampleMemorySize() const {
             return file.dataChunk.ChunkSize;
         }
-
-        // Prints num_samples samples from the wave file.
-        void printSamples( const uint32_t num_samples = -1 ) const;
 
     private:
         // Exception for if the input file could not be opened.
