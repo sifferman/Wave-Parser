@@ -41,6 +41,16 @@ class Wave {
         // Returns the ith sample in the designated channel.
         uint32_t getSample( const uint32_t i, const uint16_t channel ) const;
 
+        // Returns a pointer to the sample data.
+        const void * getSampleMemory() const {
+            return file.dataChunk.data;
+        }
+
+        // Returns a pointer to the sample data.
+        uint32_t getSampleMemorySize() const {
+            return file.dataChunk.ChunkSize;
+        }
+
         // Prints num_samples samples from the wave file.
         void printSamples( const uint32_t num_samples = -1 ) const;
 
